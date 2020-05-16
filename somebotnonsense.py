@@ -1,9 +1,17 @@
 import discord
 import requests
 import re
+import json
+
+
 client = discord.Client()
-
-
+def load_env(filename):
+    if not filename:
+        return False
+    with open(filename, 'r') as f:
+        env = json.load(f.read())
+        return env
+    return False
 
 
 @client.event
@@ -28,7 +36,7 @@ async def on_message(message):
         if message.author.bot: return
         if message.content.startswith('$meme'):
             memes = {'key': 'values'}
-            response = requests.get("https://api.giphy.com/v1/gifs/search?api_key=key&q={}&limit=1&offset=&rating=R&lang=en".format(content), data = memes)
+            response = requests.get("https://api.giphy.com/v1/gifs/search?api_key=p99LeIVnrws9GCWtbow9Oo4jNfJtBgac&q={}&limit=1&offset=&rating=R&lang=en".format(content), data = memes)
             if response.status_code == 200:
                 print("success")
             else: print('errors')
@@ -50,4 +58,4 @@ async def on_message(message):
         await message.channel.send("Welcome to this server and enjoy our wonderful channels #general")
 
 
-client.run('Token_Here')
+client.run('NzAzMzg5NTI1NjAyMzM2Nzgw.XqN7wQ.ZJNeL9u8xlLpnE-JS2tVa_ok_E0')
