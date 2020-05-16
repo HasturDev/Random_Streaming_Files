@@ -3,7 +3,7 @@ import requests
 import re
 client = discord.Client()
 
-#api key for Giphy p99LeIVnrws9GCWtbow9Oo4jNfJtBgac
+
 
 
 @client.event
@@ -28,7 +28,7 @@ async def on_message(message):
         if message.author.bot: return
         if message.content.startswith('$meme'):
             memes = {'key': 'values'}
-            response = requests.get("https://api.giphy.com/v1/gifs/search?api_key=p99LeIVnrws9GCWtbow9Oo4jNfJtBgac&q={}&limit=1&offset=&rating=R&lang=en".format(content), data = memes)
+            response = requests.get("https://api.giphy.com/v1/gifs/search?api_key=key&q={}&limit=1&offset=&rating=R&lang=en".format(content), data = memes)
             if response.status_code == 200:
                 print("success")
             else: print('errors')
