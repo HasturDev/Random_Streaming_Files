@@ -6,6 +6,11 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from pylab import rcParams
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import Dataset, DataLoader
+from tqdm import trange
 
 
 # %%
