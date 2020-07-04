@@ -27,6 +27,8 @@ NUM_LAYERS = 3
 # row. Each row corresponds to a sequence of length 5. 
 BATCH_SIZE = 1
 
+# DROPOUT = nn.Dropout(p=0.5, inplace=False)
+
 
 
 for i in range(BATCH_SIZE):
@@ -35,7 +37,7 @@ for i in range(BATCH_SIZE):
     
 
 # Initialize the RNN.
-rnn = nn.RNN(input_size=INPUT_SIZE, hidden_size=HIDDEN_SIZE, batch_first=True, num_layers = 1)
+rnn = nn.RNN(input_size=INPUT_SIZE, hidden_size=HIDDEN_SIZE, batch_first=True, num_layers = 1, dropout=0.5)
 print(np.array(target).flatten().tolist())
 target = torch.Tensor(np.array(target).flatten().tolist())
 
@@ -52,15 +54,18 @@ out, h_n = rnn(data)
 n_epoch = 100
 lr=1e-4
 optimizer = torch.optim.Adam(rnn.parameters(), lr=lr)
+linear = nn.Linear(10, 1)
 
 for i in range(20, n_epoch +1):
     optimizer.zero_grad()
     out, h_n = rnn(data)
+    out = linear(out)
     print('\nTarget: ', target.shape, '\n', target)
     print('\nOutput: ', out.shape, '\n', out)
     loss = criterion(out, target)
     loss.backward()
     optimizer.step()
+
 
 print('\nTarget: ', target.shape, '\n', target)
 print('Input: ', data.shape, '\n', data)
