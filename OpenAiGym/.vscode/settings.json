@@ -1,5 +1,6 @@
 {
     "git.ignoreLimitWarning": true,
     "python.pythonPath": "openai_venv\\Scripts\\python.exe",
-    "python.linting.enabled": false
+    "python.linting.enabled": false,
+    "python.linting.pylintEnabled": true
 }
