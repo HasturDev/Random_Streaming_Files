@@ -6,3 +6,5 @@ Automated Emails with smtplib and Mime
 Natural Language process with NLTK
 CSV Cleaning with Pandas, Numpy, Matplotlib, and seaborn
 All project questions can be asked direclty of me on fridays at 7pm EST on twitch.
+
+Majority of OpenAiGym code was written by Ryan Peach on our PyATL stream
