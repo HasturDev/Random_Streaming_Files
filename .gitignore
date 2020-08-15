@@ -3,3 +3,5 @@ env.json
 Pytorch_stuff/pytorch (1).py
 Pytorch_stuff/pytorch (2).py
 Pytorch_stuff/pytorch.py
+*.txt
+*.zip
