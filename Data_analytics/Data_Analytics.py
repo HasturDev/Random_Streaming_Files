@@ -1,5 +1,11 @@
 from typing import List
+import functools
+from threading import Thread
 from functools import partial
+from contextlib import contextmanager
+import itertools as it
+import warnings
+import signal
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -20,6 +26,40 @@ STDEV = 2.5
 STARTING_FUNDS = 1000
 FILENAMES = list(Path(r"C:\\Users\\i_miz\\Documents\\Visual_Studio_Projects\\Streaming_uploads\\Random_Streaming_Files\\Data_analytics\\Stock_Market_data\\Data\\Stocks").glob('*.txt'))
 
+PRINTED = set()
+def printonce(msg):
+    if msg not in PRINTED:
+        print(msg)
+        PRINTED.add(msg)
+
+class TimeoutException(Exception):
+    pass
+
+def timeout(timeout):
+    def deco(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            res = [TimeoutException('function [%s] timeout [%s seconds] exceeded!' % (func.__name__, timeout))]
+            def newFunc():
+                try:
+                    res[0] = func(*args, **kwargs)
+                except TimeoutException as e:
+                    res[0] = e
+            t = Thread(target=newFunc)
+            t.daemon = True
+            try:
+                t.start()
+                t.join(timeout)
+            except TimeoutException as je:
+                print('error starting thread')
+                raise je
+            ret = res[0]
+            if isinstance(ret, BaseException):
+                raise ret
+            return ret
+        return wrapper
+    return deco
+
 """
 #REF: https://www.fidelity.com/learning-center/trading-investing/technical-analysis/technical-indicator-guide/bollinger-bands#:~:text=Bollinger%20Bands%20are%20envelopes%20plotted,Period%20and%20Standard%20Deviations%2C%20StdDev.
 Short term: 10 day moving average, bands at 1.5 standard deviations. (1.5 times the standard dev. +/- the SMA)
@@ -32,7 +72,11 @@ def train_test_split(df, split_date):
 
 def simulator(price: List[float], buys: List[int], sells: List[int], pocket: float) -> float:
     number_shares = 0
-    for i, buysell in sorted([(i, 'buy') for i in buys] + [(i, 'sell') for i in sells]):
+    buys = [(i, 'buy') for i in list(buys)]
+    sells = [(i, 'sell') for i in list(sells)]
+    buysells = buys + sells
+    sbuysells = sorted(buysells)
+    for (i, buysell) in sbuysells:
         if buysell == 'buy':
             if pocket and pocket > price[i]:
                 number_shares += pocket // price[i]
@@ -44,16 +88,13 @@ def simulator(price: List[float], buys: List[int], sells: List[int], pocket: flo
     return pocket
 
 def model(series, ar, diff, mov_avg):
-    # print("Starting Model")
     try:
         model = ARIMA(series, order=(int(ar),int(diff),int(mov_avg)))
-        #fit model
         model_fit = model.fit(disp=0)
         out = model_fit.forecast()[0]
-    except:
+        printonce("Does this ever work?")
+    except ValueError as e:
         return -1000
-    # print("We did it")
-    # print(out)
     return out
 
 def get_files():
@@ -66,6 +107,7 @@ def get_files():
         df["Avg"] = (df["High"] + df["Low"])/2
         yield df
 
+@timeout(1)
 def objective_parameter_tuning(parameters):
     ar, diff, mov_avg = int(parameters['ar']), int(parameters['diff']), int(parameters['mov_avg'])
     all_mse = []
@@ -83,34 +125,53 @@ def objective_parameter_tuning(parameters):
     return np.mean(all_mse)
 
 def hyperparameter_tuning():
-    print("Starting HyperParameter Tuning")
-    uniform_int = lambda x, y, z: scope.int(hp.quniform(x, y, z, q=1))
-    space = {
-        'ar': uniform_int('ar', 0, 10),
-        'diff': uniform_int('diff', 0, 2),
-        'mov_avg': uniform_int('mov_avg', 0, 10)
-    }
-    best = fmin(objective_parameter_tuning, space, algo=tpe.suggest, max_evals=100)
+    best_value, best_pars = float('inf'), dict()
+    for (ar, diff, mov_avg) in tqdm(it.product(range(10), range(5), range(5)), desc="Hyperparameter Tuning", total=10*5*5):
+        this_pars = {'ar': ar, 'diff': diff, 'mov_avg': mov_avg}
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            try:
+                this_value = objective_parameter_tuning(this_pars)
+            except TimeoutException:
+                continue
+        if this_value < best_value:
+            best_value = this_value
+            best_pars = this_pars
+            print(f"New Best Parameters: {best_pars} Value: {best_value}")
     print("Done!")
-    return best
- 
+    if best_pars:
+        return best_pars
+    raise Exception("Didn't find any.")
+
 def main():
-    parameters = hyperparameter_tuning()
+    # parameters = hyperparameter_tuning()
+    parameters = {'ar': 5, 'diff': 3, 'mov_avg': 0}
     model_ = partial(model, **parameters)
     avg_earnings = []
-    for df in tqdm(get_files(), total=len(FILENAMES)):
+    for df in tqdm(get_files(), total=len(FILENAMES), leave=True, desc="Files"):
         test = df['Avg'].values[int(len(df)*.66):]
         our_range = list(range(int(len(test)*.3), len(test)))
         print("Predicting...")
-        predictions = np.array([model_(test[:i]) for i in our_range])
-        print("Done Predicting!")
+        predictions = np.array([model_(test[:i]) for i in tqdm(our_range, leave=True, desc="Predicting")])
+        print("Done Predicting  !")
         today = test[our_range]
-        buys = np.argwhere(predictions > today)
-        sells = np.argwhere(predictions < today)
+        buys = np.argwhere(predictions > today).flatten()
+        sells = np.argwhere(predictions < today).flatten()
         result = simulator(test, buys, sells, STARTING_FUNDS)
         earnings = result - STARTING_FUNDS
         avg_earnings.append(earnings)
+        
+        fig, ax = plt.subplots()
+        ax.plot(test[int(len(test)*3)+1:], color="blue")
+        ax.plot(predictions, color="orange")
+        ax.vlines(sells, ax.get_ylim()[0], ax.get_ylim()[1], color="red")
+        ax.vlines(buys, ax.get_ylim()[0], ax.get_ylim()[1], color="green")
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Price")
+        plt.show()
+
         print(f"We earned {earnings}")
+        break
     print(f"We made this much money!: {np.mean(avg_earnings)}")
 
 
