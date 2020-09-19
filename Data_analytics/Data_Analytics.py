@@ -20,7 +20,7 @@ import os
 
 from subprocess import check_output
 from pathlib import Path
-
+"""Starting variables for the models including the stock information files"""
 WINDOW = 50
 STDEV = 2.5
 STARTING_FUNDS = 1000
@@ -32,20 +32,26 @@ def printonce(msg):
         print(msg)
         PRINTED.add(msg)
 
+
 class TimeoutException(Exception):
     pass
 
+
 def timeout(timeout):
+    """probably chinese virus idk.
+    might be Italian Spaghetti. Don't know Italian so I couldn't say"""
     def deco(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            res = [TimeoutException('function [%s] timeout [%s seconds] exceeded!' % (func.__name__, timeout))]
+            """more chinese virus words"""
+            result = TimeoutException('function [%s] timeout [%s seconds] exceeded!' % (func.__name__, timeout))
             def newFunc():
                 try:
-                    res[0] = func(*args, **kwargs)
+                    result = func(*args, **kwargs)
                 except TimeoutException as e:
-                    res[0] = e
+                    result = e
             t = Thread(target=newFunc)
+            """Satan lives here"""
             t.daemon = True
             try:
                 t.start()
@@ -53,10 +59,9 @@ def timeout(timeout):
             except TimeoutException as je:
                 print('error starting thread')
                 raise je
-            ret = res[0]
-            if isinstance(ret, BaseException):
-                raise ret
-            return ret
+            if isinstance(result, BaseException):
+                raise result
+            return result
         return wrapper
     return deco
 
@@ -68,9 +73,11 @@ Long term: 50 day moving average, bands at 2.5 standard deviations.
 """
 
 def train_test_split(df, split_date):
+    """Splits dates in between 2 sides of a set "Split Date Variable wihtin the dataframe"""
     return df[df["Date"] <= split_date], df[df["Date"] > split_date]
 
 def simulator(price: List[float], buys: List[int], sells: List[int], pocket: float) -> float:
+    """Takes buy/sell data and determines a total value gained or loss"""
     number_shares = 0
     buys = [(i, 'buy') for i in list(buys)]
     sells = [(i, 'sell') for i in list(sells)]
@@ -88,6 +95,8 @@ def simulator(price: List[float], buys: List[int], sells: List[int], pocket: flo
     return pocket
 
 def model(series, ar, diff, mov_avg):
+    """Attempts to use ARIMA model. If model works will print out (does this ever work?) if model
+    doesn't work then will only give value of -1000 for all dates"""
     try:
         model = ARIMA(series, order=(int(ar),int(diff),int(mov_avg)))
         model_fit = model.fit(disp=0)
@@ -98,6 +107,7 @@ def model(series, ar, diff, mov_avg):
     return out
 
 def get_files():
+    """Finds the files used and places then into a pandas dataframe"""
     assert FILENAMES, "No filenames found"
     for f in FILENAMES[:10]:
         try:
@@ -109,6 +119,8 @@ def get_files():
 
 @timeout(1)
 def objective_parameter_tuning(parameters):
+    """take the parameters and find the mean of all parameters by finding a range. Uses dataframe to
+    get an average value for training. """
     ar, diff, mov_avg = int(parameters['ar']), int(parameters['diff']), int(parameters['mov_avg'])
     all_mse = []
     for df in get_files():
@@ -125,6 +137,9 @@ def objective_parameter_tuning(parameters):
     return np.mean(all_mse)
 
 def hyperparameter_tuning():
+    """take stock information and tune to determine best use parameters. Constant warnings will appear
+    preventing you from completing this task so try except must be passed to time them out. If you 
+    do not do this then you will get an infinite warning loop. """
     best_value, best_pars = float('inf'), dict()
     for (ar, diff, mov_avg) in tqdm(it.product(range(10), range(5), range(5)), desc="Hyperparameter Tuning", total=10*5*5):
         this_pars = {'ar': ar, 'diff': diff, 'mov_avg': mov_avg}
@@ -156,7 +171,7 @@ def main():
         print("Done Predicting  !")
         today = test[our_range]
         buys = np.argwhere(predictions > today).flatten()
-        sells = np.argwhere(predictions < today).flatten()
+        sells = np.argwhere(predictwions < today).flatten()
         result = simulator(test, buys, sells, STARTING_FUNDS)
         earnings = result - STARTING_FUNDS
         avg_earnings.append(earnings)
